@@ -8,8 +8,6 @@
 
 #include <Kanoop/gui/utility/unicode.h>
 
-const double LidarGuiMainWindow::RadiusDivisor = .25;
-
 LidarGuiMainWindow::LidarGuiMainWindow(QWidget *parent) :
     MainWindowBase("lidargui", parent),
     ui(new Ui::LidarGuiMainWindow)
@@ -21,21 +19,22 @@ LidarGuiMainWindow::LidarGuiMainWindow(QWidget *parent) :
     _lidar = new RPLidar("/dev/ttyUSB3");
     _lidar->setAngleOffset(Settings::instance()->rotation());
 
-    connect(ui->pushStartMotor, &QPushButton::clicked, this, &LidarGuiMainWindow::onStartMotorClicked);
-    connect(ui->pushStopMotor, &QPushButton::clicked, this, &LidarGuiMainWindow::onStopMotorClicked);
-    connect(ui->pushStartScan, &QPushButton::clicked, this, &LidarGuiMainWindow::onStartScanClicked);
-    connect(ui->pushStopScan, &QPushButton::clicked, this, &LidarGuiMainWindow::onStopScanClicked);
-    connect(ui->pushGetSampleRate, &QPushButton::clicked, this, &LidarGuiMainWindow::onGetSampleRateClicked);
-    connect(ui->pushGetAccBoard, &QPushButton::clicked, this, &LidarGuiMainWindow::onGetAccBoardClicked);
-    connect(ui->pushGetDeviceInfo, &QPushButton::clicked, this, &LidarGuiMainWindow::onGetDeviceInfoClicked);
+    connect(ui->controlWidget, &LidarControlWidget::startMotorClicked, this, &LidarGuiMainWindow::onStartMotorClicked);
+    connect(ui->controlWidget, &LidarControlWidget::stopMotorClicked, this, &LidarGuiMainWindow::onStopMotorClicked);
+    connect(ui->controlWidget, &LidarControlWidget::startScanClicked, this, &LidarGuiMainWindow::onStartScanClicked);
+    connect(ui->controlWidget, &LidarControlWidget::stopScanClicked, this, &LidarGuiMainWindow::onStopScanClicked);
+    connect(ui->controlWidget, &LidarControlWidget::refreshSampleRateClicked, this, &LidarGuiMainWindow::onGetSampleRateClicked);
+    connect(ui->controlWidget, &LidarControlWidget::refreshDeviceInfoClicked, this, &LidarGuiMainWindow::onGetDeviceInfoClicked);
+    connect(ui->controlWidget, &LidarControlWidget::performTestCode, this, &LidarGuiMainWindow::onPerformTestCodeClicked);
+    // connect(ui->controlWidget, &QPushButton::clicked, this, &LidarGuiMainWindow::onGetAccBoardClicked);
 
-    connect(ui->radiusSlider, &QSlider::valueChanged, this, &LidarGuiMainWindow::onRadiusSliderChanged);
-    connect(ui->rotationSlider, &QSlider::valueChanged, this, &LidarGuiMainWindow::onRotationSliderChanged);
+    connect(ui->controlWidget, &LidarControlWidget::scanRadiusChanged, this, &LidarGuiMainWindow::onRadiusChanged);
+    connect(ui->controlWidget, &LidarControlWidget::rotationChanged, this, &LidarGuiMainWindow::onRotationSliderChanged);
 
-    connect(ui->checkHexLog, &QCheckBox::toggled, _lidar, &RPLidar::setHexLogEnabled);
+    connect(ui->controlWidget, &LidarControlWidget::hexLogCheckChanged, _lidar, &RPLidar::setHexLogEnabled);
 
-    ui->radiusSlider->setValue(Settings::instance()->radius() / RadiusDivisor);
-    ui->rotationSlider->setValue(Settings::instance()->rotation());
+    ui->controlWidget->setRadius(Settings::instance()->radius());
+    ui->controlWidget->setRotation(Settings::instance()->rotation());
 
     ui->graphicsView->setRadius(Settings::instance()->radius());
 
@@ -73,7 +72,11 @@ void LidarGuiMainWindow::onStopScanClicked()
 
 void LidarGuiMainWindow::onGetSampleRateClicked()
 {
-    _lidar->getSampleRate();
+    GetSampleRateResponse response = _lidar->getSampleRate();
+    if(response.isValid()) {
+        ui->controlWidget->setSampleRateNormal(response.standard());
+        ui->controlWidget->setSampleRateExpress(response.express());
+    }
 }
 
 void LidarGuiMainWindow::onGetAccBoardClicked()
@@ -83,20 +86,60 @@ void LidarGuiMainWindow::onGetAccBoardClicked()
 
 void LidarGuiMainWindow::onGetDeviceInfoClicked()
 {
+    DeviceInfoResponse infoResponse = _lidar->getDeviceInfo();
+    if(infoResponse.isValid()) {
+        ui->controlWidget->setModel(infoResponse.model());
+        ui->controlWidget->setFirmwareVersion(QString("%1.%2").arg(infoResponse.firmwareVersionMajor()).arg(infoResponse.firmwareVersionMinor()));
+        ui->controlWidget->setHardwareVersion(QString::number(infoResponse.hardware()));
+        ui->controlWidget->setSerialNumber(infoResponse.serialNumber());
+    }
 
+    DeviceHealthResponse healthResponse = _lidar->getDeviceHealth();
+    QString health;
+    if(healthResponse.isValid()) {
+        switch(healthResponse.status()) {
+        case DeviceHealthResponse::Ok:
+            health = "OK";
+            break;
+        case DeviceHealthResponse::Warning:
+            health = "WARNING";
+            break;
+        case DeviceHealthResponse::Error:
+            health = "ERROR";
+            break;
+        default:
+            break;
+        }
+
+        ui->controlWidget->setHealth(health, healthResponse.errorCode());
+    }
 }
 
-void LidarGuiMainWindow::onRadiusSliderChanged(int value)
+void LidarGuiMainWindow::onPerformTestCodeClicked()
 {
-    double radius = (double)value * .25;
-    ui->textRadius->setText(QString("Scan Radius %1 meters").arg(radius));
+    int typical = _lidar->getTypicalScanMode();
+    int scanModeCount = _lidar->getScanModeCount();
+    logText(LVL_DEBUG, QString("typical: %1  count: %2").arg(typical).arg(scanModeCount));
+
+    for(int scanMode = 0;scanMode < scanModeCount;scanMode++) {
+        TimeSpan cost = _lidar->getSampleCost(scanMode);
+        double maxDistance = _lidar->getMeasurementMaxDistance(scanMode);
+        int answerType = _lidar->getAnswerCommandType(scanMode);
+        QString name = _lidar->getScanModeName(scanMode);
+        logText(LVL_DEBUG, QString("mode: %1  cost: %2  max_distance: %3  answer_type: 0x%4  name: %5")
+                .arg(scanMode).arg(cost.toString(true)).arg(maxDistance)
+                .arg(answerType, 0, 16).arg(name));
+    }
+}
+
+void LidarGuiMainWindow::onRadiusChanged(double radius)
+{
     ui->graphicsView->setRadius(radius);
     Settings::instance()->saveRadius(radius);
 }
 
 void LidarGuiMainWindow::onRotationSliderChanged(int value)
 {
-    ui->textRotationAngle->setText(QString("Rotated %1%2").arg(value).arg(Unicode::specialCharacter(Unicode::Degrees)));
     _lidar->setAngleOffset(value);
     Settings::instance()->saveRotation(value);
 }

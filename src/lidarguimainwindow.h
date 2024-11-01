@@ -22,8 +22,6 @@ private:
 
     RPLidar* _lidar;
 
-    static const double RadiusDivisor;
-
 private slots:
     void onStartMotorClicked();
     void onStopMotorClicked();
@@ -32,8 +30,9 @@ private slots:
     void onGetSampleRateClicked();
     void onGetAccBoardClicked();
     void onGetDeviceInfoClicked();
+    void onPerformTestCodeClicked();
 
-    void onRadiusSliderChanged(int value);
+    void onRadiusChanged(double radius);
     void onRotationSliderChanged(int value);
 
     void onScanSample(double bearing, double range, const QDateTime& timestamp);
