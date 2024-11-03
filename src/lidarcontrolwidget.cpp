@@ -1,7 +1,7 @@
 #include "lidarcontrolwidget.h"
 #include "ui_lidarcontrolwidget.h"
 
-#include <Kanoop/gui/utility/unicode.h>
+#include <Kanoop/utility/unicode.h>
 
 #include <Kanoop/timespan.h>
 
@@ -20,6 +20,7 @@ LidarControlWidget::LidarControlWidget(QWidget *parent) :
     connect(ui->checkHexLog, &QCheckBox::toggled, this, &LidarControlWidget::hexLogCheckChanged);
     connect(ui->pushRefreshDeviceInfo, &QToolButton::clicked, this, &LidarControlWidget::refreshDeviceInfoClicked);
     connect(ui->pushRefreshSampleRate, &QToolButton::clicked, this, &LidarControlWidget::refreshSampleRateClicked);
+    connect(ui->checkExpressScan, &QCheckBox::toggled, this, &LidarControlWidget::onExpressScanToggled);
     connect(ui->pushTest, &QToolButton::clicked, this, &LidarControlWidget::performTestCode);
 }
 
@@ -75,6 +76,12 @@ void LidarControlWidget::setHealth(const QString& healthStatus, uint16_t errorCo
     ui->textErrorCode->setText(QString("0x%1").arg(errorCode, 0, 16));
 }
 
+void LidarControlWidget::setExpressScan(bool value)
+{
+    _expressScan = value;
+    ui->checkExpressScan->setChecked(value);
+}
+
 void LidarControlWidget::onMotorStartStopChanged(bool value)
 {
     if(value) {
@@ -105,4 +112,9 @@ void LidarControlWidget::onRotationSliderChanged(int value)
 {
     ui->textRotationAngle->setText(QString("Rotated %1%2").arg(value).arg(Unicode::specialCharacter(Unicode::Degrees)));
     emit rotationChanged(value);
+}
+
+void LidarControlWidget::onExpressScanToggled(bool checked)
+{
+    _expressScan = checked;
 }

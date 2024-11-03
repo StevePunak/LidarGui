@@ -40,6 +40,13 @@
         </property>
        </widget>
       </item>
+      <item>
+       <widget class="QCheckBox" name="checkExpressScan">
+        <property name="text">
+         <string>Express Scan</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>

@@ -6,7 +6,7 @@
 
 #include <Kanoop/datetimeutil.h>
 
-#include <Kanoop/gui/utility/unicode.h>
+#include <Kanoop/utility/unicode.h>
 
 LidarGuiMainWindow::LidarGuiMainWindow(QWidget *parent) :
     MainWindowBase("lidargui", parent),
@@ -62,7 +62,12 @@ void LidarGuiMainWindow::onStopMotorClicked()
 
 void LidarGuiMainWindow::onStartScanClicked()
 {
-    _lidar->startScan();
+    if(ui->controlWidget->expressScan()) {
+        _lidar->startExpressScan();
+    }
+    else {
+        _lidar->startScan();
+    }
 }
 
 void LidarGuiMainWindow::onStopScanClicked()

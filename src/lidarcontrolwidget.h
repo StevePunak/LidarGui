@@ -27,8 +27,13 @@ public:
     void setRotation(double value);
     void setHealth(const QString& healthStatus, uint16_t errorCode);
 
+    bool expressScan() const { return _expressScan; }
+    void setExpressScan(bool value);
+
 private:
     Ui::LidarControlWidget *ui;
+
+    bool _expressScan = false;
 
     static const double RadiusDivisor;
 
@@ -49,6 +54,7 @@ private slots:
     void onScanStartStopChanged(bool value);
     void onRadiusSliderChanged(int value);
     void onRotationSliderChanged(int value);
+    void onExpressScanToggled(bool checked);
 };
 
 #endif // LIDARCONTROLWIDGET_H
